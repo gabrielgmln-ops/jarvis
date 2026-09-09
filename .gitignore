@@ -12,3 +12,6 @@ backup_estavel/
 *.old
 desktop.ini
 Thumbs.db
+
+# estado local do Claude Code, nao e do projeto
+.claude/

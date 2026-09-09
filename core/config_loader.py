@@ -41,7 +41,10 @@ CONFIG_PADRAO = {
     "arquivo_log": "logs_jarvis.txt",
     "tamanho_maximo_log_mb": 1,
 
-    "modo_seguro": False
+    "modo_seguro": False,
+
+    "caminho_vault": r"C:\SegundoCerebro",
+    "duracao_pomodoro_min": 25
 }
 
 

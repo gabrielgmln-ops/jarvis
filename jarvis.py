@@ -1,4 +1,5 @@
 import argparse
+import os
 import time
 
 import numpy as np
@@ -10,6 +11,7 @@ from core.atalho_teclado import AtalhoTeclado
 from core.bandeja import IconeBandeja
 from core.clap_detector import ClapDetector
 from core.config_loader import carregar_configuracao
+from core.gatilho_celular import GatilhoCelular
 from core.lockscreen import LockScreenChecker
 from core.logger import JarvisLogger
 from core.maquina_estados import MaquinaEstados
@@ -34,7 +36,10 @@ def _drenar_atalhos(atalho):
         pass
 
 
-def _executar_laco(config, logger, bloqueio, detector, janelas, estado, protocolos, modo_seguro, bandeja, atalho):
+def _executar_laco(
+    config, logger, bloqueio, detector, janelas, estado, protocolos, modo_seguro, bandeja, atalho,
+    gatilho_celular,
+):
     mapa_palmas = config.get("mapa_palmas", {})
     ultimo_callback = [time.time()]
 
@@ -85,18 +90,27 @@ def _executar_laco(config, logger, bloqueio, detector, janelas, estado, protocol
                         )
 
                     quantidade_palmas = detector.obter_quantidade_se_pronta()
+                    protocolo_direto = None
                     origem = "palmas"
 
                     if not quantidade_palmas and atalho is not None:
                         quantidade_palmas = atalho.obter_pedido()
                         origem = "atalho de teclado"
 
-                    if quantidade_palmas:
+                    if not quantidade_palmas and gatilho_celular is not None:
+                        protocolo_direto = gatilho_celular.verificar()
+                        if protocolo_direto:
+                            origem = "celular"
+
+                    if quantidade_palmas or protocolo_direto:
                         logger.info(f"Disparo por {origem}.")
                         estado.transicionar(MaquinaEstados.EXECUTANDO)
 
                         try:
-                            protocolos.executar_por_palmas(quantidade_palmas)
+                            if protocolo_direto:
+                                protocolos.executar_por_nome(protocolo_direto)
+                            else:
+                                protocolos.executar_por_palmas(quantidade_palmas)
                         except Exception as erro:
                             logger.error(f"Protocolo falhou: {erro}")
 
@@ -159,6 +173,17 @@ def iniciar_sistema(dry_run=False, verbose=False):
 
     protocolos = JarvisProtocols(config, logger, acoes, bandeja=bandeja)
 
+    gatilho_celular = None
+    try:
+        pasta_gatilhos = os.path.join(
+            config.get("caminho_vault", r"C:\SegundoCerebro"),
+            "99 - Sistema", "gatilhos-celular",
+        )
+        gatilho_celular = GatilhoCelular(logger, pasta_gatilhos, protocolos.nomes_protocolos())
+    except Exception as erro:
+        logger.error(f"Não consegui preparar o gatilho pelo celular (sistema continua sem ele): {erro}")
+        gatilho_celular = None
+
     logger.info("=" * 50)
     logger.info(f"{NOME_SISTEMA} online.")
     logger.info("Configuração carregada com sucesso.")
@@ -177,10 +202,13 @@ def iniciar_sistema(dry_run=False, verbose=False):
     logger.info(f"Estado inicial: {estado.estado}.")
     if bandeja is not None:
         logger.info("Ícone na bandeja do Windows ativo (pausar escuta / sair).")
+    if gatilho_celular is not None:
+        logger.info(f"Gatilho pelo celular ativo: {gatilho_celular.pasta_vigiada}")
 
     try:
         _executar_laco(
-            config, logger, bloqueio, detector, janelas, estado, protocolos, modo_seguro, bandeja, atalho
+            config, logger, bloqueio, detector, janelas, estado, protocolos, modo_seguro, bandeja, atalho,
+            gatilho_celular,
         )
 
     except KeyboardInterrupt:

@@ -44,6 +44,21 @@ PROTOCOLOS = {
         "titulo": "Protocolo FNB",
         "resumo": "Toca o audio do FNB, abre a playlist e clica no play calibrado. Nao abre o Opera.",
     },
+    "estudo": {
+        "metodo": "protocolo_estudo",
+        "titulo": "Protocolo de Estudo",
+        "resumo": "Abre o vault, o Teams e inicia um pomodoro (avisa no fim pela bandeja).",
+    },
+    "candidatura": {
+        "metodo": "protocolo_candidatura",
+        "titulo": "Protocolo de Candidatura",
+        "resumo": "Abre Gmail, LinkedIn, a Rotina de candidatura e o Banco de Respostas.",
+    },
+    "desligar": {
+        "metodo": "protocolo_desligar",
+        "titulo": "Protocolo de Desligar",
+        "resumo": "Commita o dia em C:\\JARVIS e no vault, se houver mudanca. Nao fecha janelas.",
+    },
 }
 
 

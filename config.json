@@ -33,5 +33,8 @@
     "arquivo_log": "logs_jarvis.txt",
     "tamanho_maximo_log_mb": 1,
 
-    "modo_seguro": false
+    "modo_seguro": false,
+
+    "caminho_vault": "C:\\SegundoCerebro",
+    "duracao_pomodoro_min": 25
 }
