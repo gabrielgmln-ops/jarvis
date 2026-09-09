@@ -1,0 +1,14 @@
+# ambiente virtual — nunca versionar
+venv/
+__pycache__/
+*.pyc
+
+# gerados em execucao
+logs_jarvis.txt
+
+# sobras
+Nova pasta/
+backup_estavel/
+*.old
+desktop.ini
+Thumbs.db
