@@ -1,6 +1,7 @@
 import time
 
 import pygetwindow as gw
+import win32api
 from screeninfo import get_monitors
 
 
@@ -24,6 +25,26 @@ class WindowController:
             indice = 0
 
         return telas[indice]
+
+    def indice_tela_ativa(self):
+        """Em qual tela esta o cursor agora - util pra escolher tela sem
+        depender so de um indice fixo no config (ex: perfil por horario que
+        quer abrir "na tela onde voce esta", nao numa fixa)."""
+        telas = get_monitors()
+        if not telas:
+            return 0
+
+        try:
+            x, y = win32api.GetCursorPos()
+        except Exception as erro:
+            self.logger.error(f"Não consegui ler a posição do cursor: {erro}")
+            return 0
+
+        for i, tela in enumerate(telas):
+            if tela.x <= x < tela.x + tela.width and tela.y <= y < tela.y + tela.height:
+                return i
+
+        return 0
 
     def listar_telas_detectadas(self):
         for i, tela in enumerate(get_monitors()):
