@@ -16,6 +16,79 @@ from core.window_control import WindowController
 
 
 NOME_SISTEMA = "J.A.R.V.I.S."
+INTERVALO_RECONEXAO_MICROFONE = 3.0
+LIMITE_SILENCIO_SUSPEITO = 5.0
+
+
+class MicrofoneSumiuError(Exception):
+    """O InputStream parou de entregar audio (fone bluetooth desligou, por exemplo)."""
+
+
+def _executar_laco(config, logger, bloqueio, detector, janelas, estado, protocolos, modo_seguro):
+    mapa_palmas = config.get("mapa_palmas", {})
+    ultimo_callback = [time.time()]
+
+    def callback(indata, frames, callback_time, status):
+        ultimo_callback[0] = time.time()
+
+        if status:
+            logger.error(f"Status do microfone: {status}")
+
+        # Só ouve palma de verdade enquanto DORMINDO - durante EXECUTANDO o
+        # próprio áudio dos protocolos (ou o barulho de abrir apps) não deve
+        # virar palma falsa, e nunca pode haver dois protocolos ao mesmo tempo.
+        if estado.estado != MaquinaEstados.DORMINDO:
+            return
+
+        if not bloqueio.pode_escutar_palmas():
+            detector.resetar_contagem()
+            return
+
+        volume = np.linalg.norm(indata) * 10
+        agora = time.time()
+
+        detector.analisar_volume(volume, agora)
+
+    while True:
+        try:
+            ultimo_callback[0] = time.time()
+
+            with sd.InputStream(callback=callback):
+                logger.info("Microfone aberto. Laço persistente: volta a escutar depois de cada protocolo.")
+
+                while True:
+                    if time.time() - ultimo_callback[0] > LIMITE_SILENCIO_SUSPEITO:
+                        raise MicrofoneSumiuError(
+                            f"Nenhum áudio recebido em {LIMITE_SILENCIO_SUSPEITO:.0f}s."
+                        )
+
+                    quantidade_palmas = detector.obter_quantidade_se_pronta()
+
+                    if quantidade_palmas:
+                        estado.transicionar(MaquinaEstados.EXECUTANDO)
+
+                        try:
+                            protocolos.executar_por_palmas(quantidade_palmas)
+                        except Exception as erro:
+                            logger.error(f"Protocolo falhou: {erro}")
+
+                        # Descarta qualquer coisa que o próprio protocolo tenha
+                        # feito o microfone captar antes de voltar a escutar.
+                        detector.resetar_contagem()
+                        ultimo_callback[0] = time.time()
+                        estado.transicionar(MaquinaEstados.DORMINDO)
+
+                    time.sleep(0.1)
+
+        except KeyboardInterrupt:
+            raise
+
+        except Exception as erro:
+            logger.error(f"O microfone caiu (desconectado ou trocado?): {erro}")
+            logger.info(f"Tentando reabrir o microfone em {INTERVALO_RECONEXAO_MICROFONE:.0f}s...")
+            detector.resetar_contagem()
+            estado.transicionar(MaquinaEstados.DORMINDO)
+            time.sleep(INTERVALO_RECONEXAO_MICROFONE)
 
 
 def iniciar_sistema():
@@ -50,50 +123,13 @@ def iniciar_sistema():
     logger.info("Detector de palmas ativo.")
     logger.info("Filtro contra voz contínua ativo.")
     logger.info("Proteção contra dupla instância ativa.")
+    logger.info("Recuperação automática se o microfone sumir ativa.")
     if modo_seguro:
         logger.info("MODO SEGURO ativo: protocolos só vão anunciar os passos, sem abrir nem tocar nada.")
     logger.info(f"Estado inicial: {estado.estado}.")
 
-    def callback(indata, frames, callback_time, status):
-        if status:
-            logger.error(f"Status do microfone: {status}")
-
-        # Só ouve palma de verdade enquanto DORMINDO - durante EXECUTANDO o
-        # próprio áudio dos protocolos (ou o barulho de abrir apps) não deve
-        # virar palma falsa, e nunca pode haver dois protocolos ao mesmo tempo.
-        if estado.estado != MaquinaEstados.DORMINDO:
-            return
-
-        if not bloqueio.pode_escutar_palmas():
-            detector.resetar_contagem()
-            return
-
-        volume = np.linalg.norm(indata) * 10
-        agora = time.time()
-
-        detector.analisar_volume(volume, agora)
-
     try:
-        with sd.InputStream(callback=callback):
-            logger.info("Laço persistente: o sistema volta a escutar depois de cada protocolo.")
-
-            while True:
-                quantidade_palmas = detector.obter_quantidade_se_pronta()
-
-                if quantidade_palmas:
-                    estado.transicionar(MaquinaEstados.EXECUTANDO)
-
-                    try:
-                        protocolos.executar_por_palmas(quantidade_palmas)
-                    except Exception as erro:
-                        logger.error(f"Protocolo falhou: {erro}")
-
-                    # Descarta qualquer coisa que o próprio protocolo tenha
-                    # feito o microfone captar antes de voltar a escutar.
-                    detector.resetar_contagem()
-                    estado.transicionar(MaquinaEstados.DORMINDO)
-
-                time.sleep(0.1)
+        _executar_laco(config, logger, bloqueio, detector, janelas, estado, protocolos, modo_seguro)
 
     except KeyboardInterrupt:
         logger.info("Sistema encerrado manualmente.")
