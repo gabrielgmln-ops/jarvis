@@ -3,6 +3,7 @@ import os
 import shutil
 import socket
 import subprocess
+import time
 from urllib.parse import urlparse
 
 
@@ -44,6 +45,45 @@ class JarvisBridge:
     def comando_disponivel(self):
         return shutil.which("jarvis") is not None
 
+    def _caminho_ollama_app(self):
+        candidato = os.path.join(
+            os.environ.get("LOCALAPPDATA", ""), "Programs", "Ollama", "ollama app.exe"
+        )
+        return candidato if os.path.exists(candidato) else None
+
+    def tentar_iniciar_ollama(self, tentativas=6, intervalo=1.0):
+        """Tenta subir o Ollama sozinho. True se conseguiu (ou já estava no ar)."""
+        if self.ollama_no_ar():
+            return True
+
+        caminho_app = self._caminho_ollama_app()
+        try:
+            if caminho_app:
+                subprocess.Popen([caminho_app], creationflags=subprocess.CREATE_NO_WINDOW)
+                self.logger.info("Ollama não estava no ar - abrindo 'ollama app.exe' sozinho.")
+            elif shutil.which("ollama"):
+                subprocess.Popen(
+                    ["ollama", "serve"],
+                    creationflags=subprocess.CREATE_NO_WINDOW,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+                self.logger.info("Ollama não estava no ar - rodando 'ollama serve' sozinho.")
+            else:
+                self.logger.error("Ollama não está no ar e não encontrei o executável para abrir sozinho.")
+                return False
+        except Exception as erro:
+            self.logger.error(f"Não consegui iniciar o Ollama sozinho: {erro}")
+            return False
+
+        for _ in range(tentativas):
+            time.sleep(intervalo)
+            if self.ollama_no_ar():
+                self.logger.info("Ollama subiu sozinho e já está respondendo.")
+                return True
+
+        return False
+
     def diagnosticar(self):
         """Devolve None se esta tudo pronto, ou o texto do problema."""
         if not self.comando_disponivel():
@@ -51,8 +91,8 @@ class JarvisBridge:
                     "Abra o PowerShell e teste:  jarvis --version\n"
                     "Se falhar, reinstale o OpenJarvis ou reabra a sessao do Windows.")
 
-        if not self.ollama_no_ar():
-            return ("O Ollama nao esta rodando, entao o OpenJarvis nao tem como responder.\n\n"
+        if not self.ollama_no_ar() and not self.tentar_iniciar_ollama():
+            return ("O Ollama nao esta rodando e eu nao consegui subir ele sozinho.\n\n"
                     "Abra o PowerShell e rode:  ollama serve\n"
                     "Ou abra o aplicativo do Ollama e espere o icone aparecer na bandeja.\n\n"
                     "Endereco procurado: " + self._host_ollama())
