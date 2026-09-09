@@ -1,12 +1,15 @@
 import os
+import time
 from datetime import datetime
 
 
 class JarvisLogger:
-    def __init__(self, config):
+    def __init__(self, config, verbose=False):
         self.pasta_projeto = config["pasta_projeto"]
         self.caminho_log = os.path.join(self.pasta_projeto, config["arquivo_log"])
         self.tamanho_maximo_mb = float(config["tamanho_maximo_log_mb"])
+        self.verbose = verbose
+        self._inicio = time.time()
 
     def _limpar_log_se_necessario(self):
         if not os.path.exists(self.caminho_log):
@@ -20,7 +23,8 @@ class JarvisLogger:
 
     def _registrar(self, mensagem, nivel):
         agora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        linha = f"[{agora}] [{nivel}] {mensagem}"
+        prefixo_verbose = f"[+{time.time() - self._inicio:8.2f}s] " if self.verbose else ""
+        linha = f"[{agora}] [{nivel}] {prefixo_verbose}{mensagem}"
 
         print(linha)
 
