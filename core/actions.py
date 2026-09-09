@@ -30,7 +30,20 @@ class JarvisActions:
             self.logger.error(f"Erro ao reproduzir {nome_audio}: {erro}")
             return False
 
+    def _spotify_instalado(self):
+        caminho_padrao = os.path.join(
+            os.environ.get("APPDATA", ""), "Spotify", "Spotify.exe"
+        )
+        return os.path.exists(caminho_padrao)
+
     def abrir_spotify_por_link(self, link_spotify, nome_acao):
+        if not self._spotify_instalado():
+            self.logger.error(
+                f"{nome_acao}: não encontrei o Spotify em %APPDATA%\\Spotify\\Spotify.exe. "
+                "Vou tentar abrir mesmo assim (pode estar em outro lugar), mas se não "
+                "abrir, instale em spotify.com/download ou abra manualmente."
+            )
+
         try:
             subprocess.Popen(f'start "" "{link_spotify}"', shell=True)
             self.logger.info(f"{nome_acao} aberto no Spotify.")
@@ -52,7 +65,10 @@ class JarvisActions:
         janela_spotify = self.windows.obter_janela_ativa(tentativas=8, intervalo=0.5)
 
         if not janela_spotify:
-            self.logger.error("Não consegui capturar a janela ativa do Spotify.")
+            self.logger.error(
+                "Spotify não abriu a tempo (nenhuma janela nova apareceu). "
+                "Confira se está instalado e se o link do protocolo é válido."
+            )
             return
 
         self.logger.info(f"Janela ativa capturada para Spotify: {janela_spotify.title}")
@@ -96,7 +112,10 @@ class JarvisActions:
         janela_spotify = self.windows.obter_janela_ativa(tentativas=8, intervalo=0.5)
 
         if not janela_spotify:
-            self.logger.error("Não consegui capturar a janela ativa da playlist FNB.")
+            self.logger.error(
+                "Spotify não abriu a tempo para a playlist FNB (nenhuma janela nova "
+                "apareceu). Confira se está instalado e se o link da playlist é válido."
+            )
             return
 
         self.logger.info(f"Janela ativa capturada para playlist FNB: {janela_spotify.title}")
