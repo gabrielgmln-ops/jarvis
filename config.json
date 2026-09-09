@@ -33,5 +33,7 @@
     "play_fnb_offset_y": 356,
 
     "arquivo_log": "logs_jarvis.txt",
-    "tamanho_maximo_log_mb": 1
+    "tamanho_maximo_log_mb": 1,
+
+    "modo_seguro": false
 }
