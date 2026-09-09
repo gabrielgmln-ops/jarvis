@@ -6,6 +6,7 @@ import sounddevice as sd
 
 from core.acoes_simuladas import AcoesSimuladas
 from core.actions import JarvisActions
+from core.bandeja import IconeBandeja
 from core.clap_detector import ClapDetector
 from core.config_loader import carregar_configuracao
 from core.lockscreen import LockScreenChecker
@@ -25,7 +26,7 @@ class MicrofoneSumiuError(Exception):
     """O InputStream parou de entregar audio (fone bluetooth desligou, por exemplo)."""
 
 
-def _executar_laco(config, logger, bloqueio, detector, janelas, estado, protocolos, modo_seguro):
+def _executar_laco(config, logger, bloqueio, detector, janelas, estado, protocolos, modo_seguro, bandeja):
     mapa_palmas = config.get("mapa_palmas", {})
     ultimo_callback = [time.time()]
 
@@ -41,6 +42,10 @@ def _executar_laco(config, logger, bloqueio, detector, janelas, estado, protocol
         if estado.estado != MaquinaEstados.DORMINDO:
             return
 
+        if bandeja is not None and bandeja.pausado.is_set():
+            detector.resetar_contagem()
+            return
+
         if not bloqueio.pode_escutar_palmas():
             detector.resetar_contagem()
             return
@@ -51,6 +56,10 @@ def _executar_laco(config, logger, bloqueio, detector, janelas, estado, protocol
         detector.analisar_volume(volume, agora)
 
     while True:
+        if bandeja is not None and bandeja.sair.is_set():
+            logger.info("Encerrando pela bandeja.")
+            return
+
         try:
             ultimo_callback[0] = time.time()
 
@@ -58,6 +67,10 @@ def _executar_laco(config, logger, bloqueio, detector, janelas, estado, protocol
                 logger.info("Microfone aberto. Laço persistente: volta a escutar depois de cada protocolo.")
 
                 while True:
+                    if bandeja is not None and bandeja.sair.is_set():
+                        logger.info("Encerrando pela bandeja.")
+                        return
+
                     if time.time() - ultimo_callback[0] > LIMITE_SILENCIO_SUSPEITO:
                         raise MicrofoneSumiuError(
                             f"Nenhum áudio recebido em {LIMITE_SILENCIO_SUSPEITO:.0f}s."
@@ -131,14 +144,27 @@ def iniciar_sistema(dry_run=False, verbose=False):
         logger.info("MODO SEGURO ativo: protocolos só vão anunciar os passos, sem abrir nem tocar nada.")
     logger.info(f"Estado inicial: {estado.estado}.")
 
+    bandeja = None
     try:
-        _executar_laco(config, logger, bloqueio, detector, janelas, estado, protocolos, modo_seguro)
+        bandeja = IconeBandeja(logger, NOME_SISTEMA)
+        bandeja.iniciar()
+        logger.info("Ícone na bandeja do Windows ativo (pausar escuta / sair).")
+    except Exception as erro:
+        logger.error(f"Não consegui iniciar o ícone da bandeja (sistema continua sem ele): {erro}")
+        bandeja = None
+
+    try:
+        _executar_laco(config, logger, bloqueio, detector, janelas, estado, protocolos, modo_seguro, bandeja)
 
     except KeyboardInterrupt:
         logger.info("Sistema encerrado manualmente.")
 
     except Exception as erro:
         logger.error(f"Erro crítico no sistema: {erro}")
+
+    finally:
+        if bandeja is not None:
+            bandeja.parar()
 
     logger.info(f"{NOME_SISTEMA} offline.")
     logger.info("=" * 50)
