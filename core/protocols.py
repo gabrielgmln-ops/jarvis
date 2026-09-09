@@ -4,11 +4,11 @@ from core.jarvis_bridge import JarvisBridge
 
 
 class JarvisProtocols:
-    def __init__(self, config, logger, actions):
+    def __init__(self, config, logger, actions, bandeja=None):
         self.config = config
         self.logger = logger
         self.actions = actions
-        self.jarvis_bridge = JarvisBridge(logger)
+        self.jarvis_bridge = JarvisBridge(logger, bandeja=bandeja)
         self._protocolos = {
             "inicial": self.protocolo_inicial,
             "fnb": self.protocolo_fnb,
