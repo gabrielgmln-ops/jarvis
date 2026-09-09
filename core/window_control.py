@@ -52,6 +52,24 @@ class WindowController:
 
         return None
 
+    def _com_retry(self, acao, tentativas=3, intervalo=0.4):
+        """Tenta a acao (moveTo/resizeTo/maximize) de novo em caso de erro.
+
+        O Windows as vezes recusa SetWindowPos com "Acesso negado" enquanto a
+        janela ainda esta terminando de abrir/animar - e um erro transitorio,
+        nao uma permissao de verdade (testado: mesmo usuario, nada elevado).
+        """
+        ultimo_erro = None
+        for tentativa in range(1, tentativas + 1):
+            try:
+                acao()
+                return True
+            except Exception as erro:
+                ultimo_erro = erro
+                if tentativa < tentativas:
+                    time.sleep(intervalo)
+        raise ultimo_erro
+
     def mover_para_tela(self, janela, indice_tela, nome_app):
         tela = self.obter_tela(indice_tela)
 
@@ -71,13 +89,13 @@ class WindowController:
             except Exception:
                 pass
 
-            janela.moveTo(tela.x, tela.y)
+            self._com_retry(lambda: janela.moveTo(tela.x, tela.y))
             time.sleep(0.5)
 
-            janela.resizeTo(tela.width, tela.height)
+            self._com_retry(lambda: janela.resizeTo(tela.width, tela.height))
             time.sleep(0.5)
 
-            janela.maximize()
+            self._com_retry(lambda: janela.maximize())
             time.sleep(0.5)
 
             self.logger.info(f"{nome_app} movido e maximizado na Tela {indice_tela}.")
