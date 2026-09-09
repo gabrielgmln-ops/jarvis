@@ -9,6 +9,11 @@ class JarvisProtocols:
         self.logger = logger
         self.actions = actions
         self.jarvis_bridge = JarvisBridge(logger)
+        self._protocolos = {
+            "inicial": self.protocolo_inicial,
+            "fnb": self.protocolo_fnb,
+            "perguntar": self.protocolo_perguntar_jarvis,
+        }
 
     def protocolo_inicial(self):
         self.logger.info("Executando Protocolo Inicial.")
@@ -31,7 +36,7 @@ class JarvisProtocols:
         )
 
         self.logger.info("Protocolo Inicial concluído.")
-        return False
+        return True
 
     def protocolo_fnb(self):
         self.logger.info("Executando Protocolo FNB.")
@@ -44,7 +49,7 @@ class JarvisProtocols:
         self.actions.abrir_playlist_fnb()
 
         self.logger.info("Protocolo FNB concluído.")
-        return False
+        return True
 
     def protocolo_perguntar_jarvis(self):
         self.logger.info("Executando Protocolo Perguntar ao Jarvis.")
@@ -57,19 +62,24 @@ class JarvisProtocols:
         self.jarvis_bridge.mostrar_resposta(resposta)
 
         self.logger.info("Protocolo Perguntar ao Jarvis concluído.")
-        return False
+        return True
 
     def executar_por_palmas(self, quantidade_palmas):
         self.logger.info(f"Quantidade de palmas identificada: {quantidade_palmas}")
 
-        if quantidade_palmas == int(self.config["palmas_protocolo_inicial"]):
-            return self.protocolo_inicial()
+        mapa_palmas = self.config.get("mapa_palmas", {})
+        chave_protocolo = mapa_palmas.get(str(quantidade_palmas))
 
-        if quantidade_palmas == int(self.config["palmas_protocolo_fnb"]):
-            return self.protocolo_fnb()
+        if chave_protocolo is None:
+            self.logger.info(f"Nenhum protocolo associado a {quantidade_palmas} palma(s).")
+            return None
 
-        if quantidade_palmas == int(self.config.get("palmas_perguntar_jarvis", 0)):
-            return self.protocolo_perguntar_jarvis()
+        metodo = self._protocolos.get(chave_protocolo)
+        if metodo is None:
+            self.logger.error(
+                f"mapa_palmas aponta '{quantidade_palmas}' para '{chave_protocolo}', "
+                "que não é um protocolo conhecido."
+            )
+            return None
 
-        self.logger.info(f"Nenhum protocolo associado a {quantidade_palmas} palma(s).")
-        return True
+        return metodo()
