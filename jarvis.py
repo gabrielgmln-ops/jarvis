@@ -6,6 +6,7 @@ import sounddevice as sd
 
 from core.acoes_simuladas import AcoesSimuladas
 from core.actions import JarvisActions
+from core.atalho_teclado import AtalhoTeclado
 from core.bandeja import IconeBandeja
 from core.clap_detector import ClapDetector
 from core.config_loader import carregar_configuracao
@@ -26,7 +27,14 @@ class MicrofoneSumiuError(Exception):
     """O InputStream parou de entregar audio (fone bluetooth desligou, por exemplo)."""
 
 
-def _executar_laco(config, logger, bloqueio, detector, janelas, estado, protocolos, modo_seguro, bandeja):
+def _drenar_atalhos(atalho):
+    if atalho is None:
+        return
+    while atalho.obter_pedido() is not None:
+        pass
+
+
+def _executar_laco(config, logger, bloqueio, detector, janelas, estado, protocolos, modo_seguro, bandeja, atalho):
     mapa_palmas = config.get("mapa_palmas", {})
     ultimo_callback = [time.time()]
 
@@ -77,8 +85,14 @@ def _executar_laco(config, logger, bloqueio, detector, janelas, estado, protocol
                         )
 
                     quantidade_palmas = detector.obter_quantidade_se_pronta()
+                    origem = "palmas"
+
+                    if not quantidade_palmas and atalho is not None:
+                        quantidade_palmas = atalho.obter_pedido()
+                        origem = "atalho de teclado"
 
                     if quantidade_palmas:
+                        logger.info(f"Disparo por {origem}.")
                         estado.transicionar(MaquinaEstados.EXECUTANDO)
 
                         try:
@@ -87,8 +101,10 @@ def _executar_laco(config, logger, bloqueio, detector, janelas, estado, protocol
                             logger.error(f"Protocolo falhou: {erro}")
 
                         # Descarta qualquer coisa que o próprio protocolo tenha
-                        # feito o microfone captar antes de voltar a escutar.
+                        # feito o microfone captar (ou qualquer atalho apertado
+                        # durante a execução) antes de voltar a escutar.
                         detector.resetar_contagem()
+                        _drenar_atalhos(atalho)
                         ultimo_callback[0] = time.time()
                         estado.transicionar(MaquinaEstados.DORMINDO)
 
@@ -124,6 +140,15 @@ def iniciar_sistema(dry_run=False, verbose=False):
         logger.error(f"Não consegui iniciar o ícone da bandeja (sistema continua sem ele): {erro}")
         bandeja = None
 
+    mapa_palmas = config.get("mapa_palmas", {})
+    atalho = None
+    try:
+        atalho = AtalhoTeclado(logger, mapa_palmas)
+        atalho.iniciar()
+    except Exception as erro:
+        logger.error(f"Não consegui registrar os atalhos de teclado (sistema continua sem eles): {erro}")
+        atalho = None
+
     modo_seguro = dry_run or bool(config.get("modo_seguro", False))
     if dry_run:
         logger.info("--dry-run: rodando em modo seguro nesta execução (config.json não muda).")
@@ -140,7 +165,6 @@ def iniciar_sistema(dry_run=False, verbose=False):
     logger.info("Telas detectadas:")
     janelas.listar_telas_detectadas()
 
-    mapa_palmas = config.get("mapa_palmas", {})
     for palmas, protocolo in sorted(mapa_palmas.items(), key=lambda item: int(item[0])):
         logger.info(f"{palmas} palmas: {protocolo}.")
 
@@ -155,7 +179,9 @@ def iniciar_sistema(dry_run=False, verbose=False):
         logger.info("Ícone na bandeja do Windows ativo (pausar escuta / sair).")
 
     try:
-        _executar_laco(config, logger, bloqueio, detector, janelas, estado, protocolos, modo_seguro, bandeja)
+        _executar_laco(
+            config, logger, bloqueio, detector, janelas, estado, protocolos, modo_seguro, bandeja, atalho
+        )
 
     except KeyboardInterrupt:
         logger.info("Sistema encerrado manualmente.")
@@ -166,6 +192,8 @@ def iniciar_sistema(dry_run=False, verbose=False):
     finally:
         if bandeja is not None:
             bandeja.parar()
+        if atalho is not None:
+            atalho.parar()
 
     logger.info(f"{NOME_SISTEMA} offline.")
     logger.info("=" * 50)
