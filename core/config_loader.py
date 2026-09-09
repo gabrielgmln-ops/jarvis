@@ -17,9 +17,7 @@ CONFIG_PADRAO = {
     "ataque_minimo_palma": 2.8,
 
     "tempo_janela_palmas": 1.4,
-    "palmas_protocolo_inicial": 2,
-    "palmas_protocolo_fnb": 3,
-    "palmas_perguntar_jarvis": 4,
+    "mapa_palmas": {"2": "inicial", "3": "fnb", "4": "perguntar"},
     "pergunta_jarvis": "Me dê uma dica rápida e útil pra agora.",
 
     "link_musica_spotify": "spotify:track:39shmbIHICJ2Wxnk1fPSdz",
