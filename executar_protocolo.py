@@ -25,6 +25,7 @@ PASTA_PROJETO = os.path.dirname(os.path.abspath(__file__))
 if PASTA_PROJETO not in sys.path:
     sys.path.insert(0, PASTA_PROJETO)
 
+from core.acoes_simuladas import AcoesSimuladas  # noqa: E402
 from core.actions import JarvisActions          # noqa: E402
 from core.config_loader import carregar_configuracao  # noqa: E402
 from core.logger import JarvisLogger            # noqa: E402
@@ -46,34 +47,6 @@ PROTOCOLOS = {
 }
 
 
-class AcoesSimuladas:
-    """Substitui JarvisActions no modo --simular: anuncia, nao executa."""
-
-    def __init__(self, config, logger, windows):
-        self.config = config
-        self.logger = logger
-
-    def _anunciar(self, texto):
-        print("  [simulado] " + texto)
-        self.logger.info("[simulado] " + texto)
-
-    def tocar_audio(self, nome_arquivo, nome_audio):
-        caminho = os.path.join(self.config["pasta_projeto"], nome_arquivo)
-        existe = "existe" if os.path.exists(caminho) else "NAO ENCONTRADO"
-        self._anunciar("tocaria o {0}: {1} ({2})".format(nome_audio, nome_arquivo, existe))
-        return True
-
-    def abrir_spotify_principal(self):
-        self._anunciar("abriria a musica principal e moveria para a tela {0}".format(
-            self.config["tela_spotify"]))
-
-    def abrir_playlist_fnb(self):
-        self._anunciar("abriria a playlist FNB e clicaria no play calibrado")
-
-    def abrir_opera(self):
-        self._anunciar("abriria o Opera na tela {0}".format(self.config["tela_opera"]))
-
-
 def listar():
     print("Protocolos disponiveis:")
     for chave, info in PROTOCOLOS.items():
@@ -93,14 +66,18 @@ def executar(nome, simular=False):
     logger = JarvisLogger(config)
     janelas = WindowController(config, logger)
 
-    if simular:
+    modo_seguro = bool(config.get("modo_seguro", False))
+    if simular or modo_seguro:
         acoes = AcoesSimuladas(config, logger, janelas)
     else:
         acoes = JarvisActions(config, logger, janelas)
 
     protocolos = JarvisProtocols(config, logger, acoes)
 
-    origem = "simulacao" if simular else "chamada externa"
+    if modo_seguro and not simular:
+        print("modo_seguro ativo no config.json - simulando mesmo sem --simular.")
+
+    origem = "simulacao" if (simular or modo_seguro) else "chamada externa"
     logger.info("=" * 50)
     logger.info("{0} disparado por {1} (executar_protocolo.py).".format(info["titulo"], origem))
     print("{0}: {1}".format("Simulando" if simular else "Executando", info["titulo"]))

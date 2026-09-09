@@ -3,6 +3,7 @@ import time
 import numpy as np
 import sounddevice as sd
 
+from core.acoes_simuladas import AcoesSimuladas
 from core.actions import JarvisActions
 from core.clap_detector import ClapDetector
 from core.config_loader import carregar_configuracao
@@ -25,7 +26,13 @@ def iniciar_sistema():
     bloqueio = LockScreenChecker()
     detector = ClapDetector(config, logger)
     janelas = WindowController(config, logger)
-    acoes = JarvisActions(config, logger, janelas)
+
+    modo_seguro = bool(config.get("modo_seguro", False))
+    if modo_seguro:
+        acoes = AcoesSimuladas(config, logger, janelas)
+    else:
+        acoes = JarvisActions(config, logger, janelas)
+
     protocolos = JarvisProtocols(config, logger, acoes)
 
     sistema_ativo = True
@@ -41,6 +48,8 @@ def iniciar_sistema():
     logger.info("Detector de palmas ativo.")
     logger.info("Filtro contra voz contínua ativo.")
     logger.info("Proteção contra dupla instância ativa.")
+    if modo_seguro:
+        logger.info("MODO SEGURO ativo: protocolos só vão anunciar os passos, sem abrir nem tocar nada.")
 
     def callback(indata, frames, callback_time, status):
         if status:
