@@ -55,7 +55,7 @@ def listar():
     return 0
 
 
-def executar(nome, simular=False):
+def executar(nome, simular=False, verbose=False):
     info = PROTOCOLOS.get(nome)
     if info is None:
         print("ERRO: protocolo desconhecido: {0}".format(nome))
@@ -63,7 +63,7 @@ def executar(nome, simular=False):
         return 2
 
     config = carregar_configuracao()
-    logger = JarvisLogger(config)
+    logger = JarvisLogger(config, verbose=verbose)
     janelas = WindowController(config, logger)
 
     modo_seguro = bool(config.get("modo_seguro", False))
@@ -103,6 +103,8 @@ def main():
                         help="lista os protocolos disponiveis e sai")
     parser.add_argument("--simular", action="store_true",
                         help="anuncia os passos sem abrir nada nem tocar audio")
+    parser.add_argument("--verbose", action="store_true",
+                        help="imprime cada linha do log com o tempo decorrido")
 
     args = parser.parse_args()
 
@@ -113,7 +115,7 @@ def main():
         parser.print_help()
         return 0
 
-    return executar(args.protocolo.strip().lower(), simular=args.simular)
+    return executar(args.protocolo.strip().lower(), simular=args.simular, verbose=args.verbose)
 
 
 if __name__ == "__main__":

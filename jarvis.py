@@ -1,3 +1,4 @@
+import argparse
 import time
 
 import numpy as np
@@ -91,18 +92,20 @@ def _executar_laco(config, logger, bloqueio, detector, janelas, estado, protocol
             time.sleep(INTERVALO_RECONEXAO_MICROFONE)
 
 
-def iniciar_sistema():
+def iniciar_sistema(dry_run=False, verbose=False):
     impedir_multiplas_instancias()
 
     config = carregar_configuracao()
 
-    logger = JarvisLogger(config)
+    logger = JarvisLogger(config, verbose=verbose)
     bloqueio = LockScreenChecker()
     detector = ClapDetector(config, logger)
     janelas = WindowController(config, logger)
     estado = MaquinaEstados(logger)
 
-    modo_seguro = bool(config.get("modo_seguro", False))
+    modo_seguro = dry_run or bool(config.get("modo_seguro", False))
+    if dry_run:
+        logger.info("--dry-run: rodando em modo seguro nesta execução (config.json não muda).")
     if modo_seguro:
         acoes = AcoesSimuladas(config, logger, janelas)
     else:
@@ -141,5 +144,20 @@ def iniciar_sistema():
     logger.info("=" * 50)
 
 
+def main():
+    parser = argparse.ArgumentParser(description="J.A.R.V.I.S. - detector de palmas.")
+    parser.add_argument(
+        "--dry-run", action="store_true",
+        help="roda em modo seguro só nesta execução, sem mudar o config.json"
+    )
+    parser.add_argument(
+        "--verbose", action="store_true",
+        help="imprime cada linha do log com o tempo decorrido desde que o sistema ligou"
+    )
+    args = parser.parse_args()
+
+    iniciar_sistema(dry_run=args.dry_run, verbose=args.verbose)
+
+
 if __name__ == "__main__":
-    iniciar_sistema()
+    main()
