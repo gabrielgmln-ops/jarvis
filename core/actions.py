@@ -161,3 +161,36 @@ class JarvisActions:
             indice_tela=int(self.config["tela_opera"]),
             nome_app="Opera"
         )
+
+    def abrir_url(self, url, nome_acao):
+        try:
+            subprocess.Popen(f'start "" "{url}"', shell=True)
+            self.logger.info(f"{nome_acao} aberto.")
+            return True
+        except Exception as erro:
+            self.logger.error(f"Erro ao abrir {nome_acao}: {erro}")
+            return False
+
+    def abrir_vault(self):
+        caminho_vault = self.config.get("caminho_vault", r"C:\SegundoCerebro")
+        if not os.path.isdir(caminho_vault):
+            self.logger.error(f"Pasta do vault não encontrada: {caminho_vault}")
+            return False
+        return self.abrir_url(caminho_vault, "Vault (explorador de arquivos)")
+
+    def abrir_nota_vault(self, caminho_relativo):
+        caminho_vault = self.config.get("caminho_vault", r"C:\SegundoCerebro")
+        caminho = os.path.join(caminho_vault, caminho_relativo)
+        if not os.path.exists(caminho):
+            self.logger.error(f"Nota não encontrada: {caminho}")
+            return False
+        return self.abrir_url(caminho, f"Nota '{caminho_relativo}'")
+
+    def abrir_teams(self):
+        return self.abrir_url("msteams:", "Microsoft Teams")
+
+    def abrir_gmail(self):
+        return self.abrir_url("https://mail.google.com", "Gmail")
+
+    def abrir_linkedin(self):
+        return self.abrir_url("https://www.linkedin.com", "LinkedIn")

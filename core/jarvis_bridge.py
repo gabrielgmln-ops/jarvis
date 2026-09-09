@@ -151,15 +151,19 @@ class JarvisBridge:
 
     def mostrar_resposta(self, resposta):
         texto = resposta if resposta else "O OpenJarvis nao respondeu dessa vez."
+        self.notificar(texto)
 
-        if self._notificar_pela_bandeja(texto):
+    def notificar(self, texto, titulo="J.A.R.V.I.S."):
+        """Notificacao generica - usada pela resposta do OpenJarvis e por
+        qualquer protocolo que precise avisar algo (ex: fim do pomodoro)."""
+        if self._notificar_pela_bandeja(texto, titulo):
             return
 
         # Sem bandeja disponivel: cai pro MessageBox (rouba o foco, mas sempre funciona).
         # MB_OK (0x0) + icone de informacao (0x40) + sempre no topo (0x40000)
-        ctypes.windll.user32.MessageBoxW(0, texto, "J.A.R.V.I.S.", 0x40 | 0x40000)
+        ctypes.windll.user32.MessageBoxW(0, texto, titulo, 0x40 | 0x40000)
 
-    def _notificar_pela_bandeja(self, texto):
+    def _notificar_pela_bandeja(self, texto, titulo="J.A.R.V.I.S."):
         icone = getattr(self.bandeja, "_icone", None)
         if icone is None:
             return False
@@ -168,7 +172,7 @@ class JarvisBridge:
             return False
 
         try:
-            icone.notify(texto, "J.A.R.V.I.S.")
+            icone.notify(texto, titulo)
             return True
         except Exception as erro:
             self.logger.error(f"Notificação da bandeja falhou, caindo pro MessageBox: {erro}")
