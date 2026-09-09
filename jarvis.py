@@ -116,6 +116,14 @@ def iniciar_sistema(dry_run=False, verbose=False):
     janelas = WindowController(config, logger)
     estado = MaquinaEstados(logger)
 
+    bandeja = None
+    try:
+        bandeja = IconeBandeja(logger, NOME_SISTEMA)
+        bandeja.iniciar()
+    except Exception as erro:
+        logger.error(f"Não consegui iniciar o ícone da bandeja (sistema continua sem ele): {erro}")
+        bandeja = None
+
     modo_seguro = dry_run or bool(config.get("modo_seguro", False))
     if dry_run:
         logger.info("--dry-run: rodando em modo seguro nesta execução (config.json não muda).")
@@ -124,7 +132,7 @@ def iniciar_sistema(dry_run=False, verbose=False):
     else:
         acoes = JarvisActions(config, logger, janelas)
 
-    protocolos = JarvisProtocols(config, logger, acoes)
+    protocolos = JarvisProtocols(config, logger, acoes, bandeja=bandeja)
 
     logger.info("=" * 50)
     logger.info(f"{NOME_SISTEMA} online.")
@@ -143,15 +151,8 @@ def iniciar_sistema(dry_run=False, verbose=False):
     if modo_seguro:
         logger.info("MODO SEGURO ativo: protocolos só vão anunciar os passos, sem abrir nem tocar nada.")
     logger.info(f"Estado inicial: {estado.estado}.")
-
-    bandeja = None
-    try:
-        bandeja = IconeBandeja(logger, NOME_SISTEMA)
-        bandeja.iniciar()
+    if bandeja is not None:
         logger.info("Ícone na bandeja do Windows ativo (pausar escuta / sair).")
-    except Exception as erro:
-        logger.error(f"Não consegui iniciar o ícone da bandeja (sistema continua sem ele): {erro}")
-        bandeja = None
 
     try:
         _executar_laco(config, logger, bloqueio, detector, janelas, estado, protocolos, modo_seguro, bandeja)
