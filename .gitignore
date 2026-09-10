@@ -3,6 +3,10 @@ venv/
 __pycache__/
 *.pyc
 
+# segredos e dados pessoais — nunca versionar
+config.local.json
+.env
+
 # gerados em execucao
 logs_jarvis.txt
 
