@@ -68,7 +68,7 @@ python executar_protocolo.py --listar
 Requer Windows, Python 3.11+ e [Ollama](https://ollama.com) com um modelo baixado.
 
 ```bash
-git clone https://github.com/<usuario>/jarvis.git
+git clone https://github.com/gabrielgmln-ops/jarvis.git
 cd jarvis
 python -m venv venv && venv\Scripts\activate
 pip install -r requirements.txt
