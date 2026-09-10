@@ -27,17 +27,20 @@ class MaquinaEstados:
 
     def transicionar(self, novo_estado):
         anterior = self.estado
-        self.estado = novo_estado
         self.logger.info(f"Estado: {anterior} -> {novo_estado}")
 
-        if not self.tocar_som:
-            return
+        # O beep toca ANTES de trocar self.estado de proposito: o callback do
+        # microfone só escuta palma de verdade quando self.estado ==
+        # DORMINDO, e o beep sai pela caixa de som. Se o estado já tivesse
+        # virado DORMINDO antes do Beep, o sistema ouviria o proprio beep e
+        # contaria como palma (era o que estava acontecendo - ver log com
+        # "Palma valida detectada" no mesmo segundo do "-> DORMINDO").
+        if self.tocar_som:
+            frequencia_duracao = self._SONS.get(novo_estado)
+            if frequencia_duracao:
+                try:
+                    winsound.Beep(*frequencia_duracao)
+                except (RuntimeError, ValueError) as erro:
+                    self.logger.error(f"Não consegui tocar o som de transição: {erro}")
 
-        frequencia_duracao = self._SONS.get(novo_estado)
-        if not frequencia_duracao:
-            return
-
-        try:
-            winsound.Beep(*frequencia_duracao)
-        except (RuntimeError, ValueError) as erro:
-            self.logger.error(f"Não consegui tocar o som de transição: {erro}")
+        self.estado = novo_estado
